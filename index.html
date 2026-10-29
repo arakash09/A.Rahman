@@ -1,1 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animation</title>
+<style>
+  :root{--title-size:clamp(2rem,2vw,8rem)}
+  html,body{margin:0;height:100%;overflow:hidden;background:#FaF9F5}
+  .card{position:absolute;animation:in .12s ease-out both}
+  .card.out{animation:out .1s ease-in both}
+  .card.transform-to-title{animation:sink .8s ease-in forwards}
+  .card.transform-to-title .shade{opacity:0;transition:opacity .4s}
+  .title{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;margin:0;color:#000;font-family:"Mosterra","Montserrat",Arial,sans-serif;font-size:var(--title-size);font-weight:700;letter-spacing:.04em;opacity:0;transform:scale(.8);animation:title-in .7s .25s ease-out forwards}
+  .title span{display:inline-block}
+  .title.sweep span{position:absolute;display:grid;place-items:center;box-sizing:border-box;white-space:pre}
+  .title .glyph{position:absolute;inset:0;display:grid;place-items:center;transition:opacity .5s ease,transform .5s ease,filter .5s ease}
+  .title .slash-glyph{opacity:0;transform:scale(.7)}
+  .title .slash.is-slash .letter-a{opacity:0;transform:scale(.7);filter:blur(4px)}
+  .title .slash.is-slash .slash-glyph{opacity:1;transform:scale(1)}
+  .black-circle{position:fixed;isolation:isolate;border-radius:50%;background:#40474d;pointer-events:none}
+  .black-circle::before{content:"";position:absolute;z-index:-1;left:-25%;top:82%;width:150%;height:35%;border-radius:50%;background:rgba(0,0,0,.38);filter:blur(8px);animation:circle-shadow-sweep 1.2s ease-in-out infinite}
+  .shade{position:absolute;inset:-4%;background:rgba(0,0,0,.4);filter:blur(26px);transform:translateY(5%) scale(1.04);border-radius:10px}
+  img{position:absolute;inset:0;width:100%;height:100%;border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  @keyframes in{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
+  @keyframes out{to{opacity:0;transform:scale(1.04)}}
+  @keyframes sink{to{opacity:0;transform:scale(.05);filter:blur(12px)}}
+  @keyframes title-in{to{opacity:1;transform:scale(1)}}
+  @keyframes circle-shadow-sweep{0%{opacity:0;transform:translateX(-12%) scaleX(.8)}20%{opacity:.45}80%{opacity:.7;transform:translateX(12%) scaleX(1.1)}100%{opacity:0;transform:translateX(14%) scaleX(1.1)}}
+</style>
+</head>
+<body>
+<script>
+// 1. Put your 10 pictures in the same folder as this file and list their names here
+const files = [
+  "/assets/1.jpg", "/assets/2.jpg", "/assets/3.jpg", "/assets/4.jpg","/assets/5.jpg", 
+  "/assets/6.jpg", "/assets/7.jpg", "/assets/8.jpg", "/assets/9.jpg", "/assets/10.jpg"
+];
 
+const speed = 8;            // pictures per second
+const rounds = 2;
+let n = -1, cur = null;
+
+function show(){
+  if (n + 1 >= files.length * rounds) return;
+  n++;
+  if(cur){ const old = cur; old.classList.add("out"); setTimeout(() => old.remove(), 200); }
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = '<div class="shade"></div><img src="' + files[n % files.length] + '">';
+  document.body.appendChild(card);
+  cur = card;
+
+  const img = card.querySelector("img");
+  const fit = () => {                       // keep original shape, cover 2/5 of the screen
+    const W = innerWidth, H = innerHeight, a = img.naturalWidth / img.naturalHeight || 1.5;
+    let w = Math.sqrt(0.05 * W * H * a), h = w / a;
+    if(w > 0.94 * W){ w = 0.94 * W; h = w / a; }
+    if(h > 0.94 * H){ h = 0.94 * H; w = h * a; }
+    card.style.cssText += "width:" + w + "px;height:" + h + "px;left:" + (W - w) / 2 + "px;top:" + (H - h) / 2 + "px";
+  };
+  img.onload = fit;
+  if (n < files.length * rounds - 1) {
+    setTimeout(show, 1000 / speed);
+  } else {
+    setTimeout(() => {
+      card.classList.add("transform-to-title");
+      const title = document.createElement("h1");
+      title.className = "title";
+      for (const [index, character] of [..."ARCHITECTURE"].entries()) {
+        const span = document.createElement("span");
+        span.textContent = character;
+        if (index === 0) {
+          span.className = "slash";
+        } else {
+          span.className = "letter";
+        }
+        title.appendChild(span);
+      }
+      document.body.appendChild(title);
+      setTimeout(() => {
+        const slash = title.querySelector(".slash");
+        const titleRect = title.getBoundingClientRect();
+        const characters = [...title.querySelectorAll("span")].map(element => ({
+          element,
+          rect: element.getBoundingClientRect()
+        }));
+        characters.forEach(({ element, rect }) => {
+          element.style.left = `${rect.left - titleRect.left}px`;
+          element.style.top = `${rect.top - titleRect.top}px`;
+          element.style.width = `${rect.width}px`;
+          element.style.height = `${rect.height}px`;
+        });
+        title.classList.add("sweep");
+
+        const letterA = document.createElement("span");
+        letterA.className = "glyph letter-a";
+        letterA.textContent = "A";
+        const slashGlyph = document.createElement("span");
+        slashGlyph.className = "glyph slash-glyph";
+        slashGlyph.textContent = "/";
+        slash.replaceChildren(letterA, slashGlyph);
+
+        setTimeout(() => {
+          slash.classList.add("is-slash");
+          setTimeout(() => {
+            const slashRect = slash.getBoundingClientRect();
+            const centerX = window.innerWidth / 2;
+            const delta = centerX - (slashRect.left + slashRect.width / 2);
+            const distance = Math.abs(delta);
+            const duration = 1000; //Slash movement and letter sweep milliseconds
+            const speed = distance / duration;
+            const slashRight = slashRect.right;
+            const sweepAnimations = [];
+
+            sweepAnimations.push(slash.animate([
+              { transform: "translateX(0)" },
+              { transform: `translateX(${delta}px)` }
+            ], { duration, easing: "linear", fill: "forwards" }));
+            sweepAnimations.push(slashGlyph.animate([
+              { transform: "scale(1)", textShadow: "0 0 0 transparent" },
+              { transform: "scale(1.5)", textShadow: "0 0 12px rgba(0,0,0,.55), 0 0 36px rgba(0,0,0,.3)" } // scale(1.5=size of the /) 
+            ], { duration, easing: "linear", fill: "forwards" }));
+
+            title.querySelectorAll(".letter").forEach(letter => {
+              const rect = letter.getBoundingClientRect();
+              const gap = Math.max(0, rect.left - slashRight);
+              const distanceToMeet = gap / 2;
+              const time = speed === 0
+                ? gap / 0.2
+                : distanceToMeet <= distance
+                  ? distanceToMeet / speed
+                  : duration + (gap - 2 * distance) / speed;
+              const travel = speed === 0
+                ? gap
+                : Math.min(gap, distance + speed * Math.max(0, time - duration));
+              const fadeStarts = Math.max(0, time - 250);
+              const animation = letter.animate([
+                { transform: "translateX(0)", opacity: 1, offset: 0 },
+                { transform: `translateX(${-speed * fadeStarts}px)`, opacity: 1, offset: time ? fadeStarts / time : 0 },
+                { transform: `translateX(${-travel}px) scale(.7)`, opacity: 0, filter: "blur(3px)", offset: 1 }
+              ], { duration: Math.max(1, time), easing: "linear", fill: "forwards" });
+              animation.onfinish = () => letter.remove();
+              sweepAnimations.push(animation);
+            });
+            Promise.all(sweepAnimations.map(animation => animation.finished)).then(() => {
+              setTimeout(() => {
+                const slashBounds = slashGlyph.getBoundingClientRect();
+                const diameter = slashBounds.height * 0.75;
+                const radius = diameter / 2;
+                const circle = document.createElement("div");
+                circle.className = "black-circle";
+                circle.style.width = `${diameter}px`;
+                circle.style.height = `${diameter}px`;
+                circle.style.left = `${slashBounds.right + 2}px`;
+                circle.style.top = `${slashBounds.top + slashBounds.height / 2 - radius}px`;
+                document.body.appendChild(circle);
+              }, 500);
+            });
+          }, 500);//when the slash starts moving
+        }, 100);
+      }, 1000);// pause before A transforms to slash
+    }, 1000 / speed);
+  }
+}
+
+show();
+</script>
+</body>
+</html>
